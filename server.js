@@ -4,57 +4,57 @@ import Razorpay from 'razorpay';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 
+// Load environment variables
 dotenv.config();
 
 const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors({
-  origin: ['https://triple-a-fc.vercel.app', 'http://localhost:3000'],
-  credentials: true
-}));
+app.use(cors());
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_GEZQfBnCrf1uyR',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'Z0GdpsZJIu2kRgp2cboJiBjM'
 });
 
-// Create order endpoint
-app.post('/api/create-order', async (req, res) => {
+// Routes
+app.post('/api/razorpay/createOrder', async (req, res) => {
   try {
-    const { amount, currency = 'INR', receipt } = req.body;
+    const { amount, currency = 'INR' } = req.body;
 
     if (!amount || amount <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid amount'
-      });
+      return res.status(400).json({ message: 'Invalid amount' });
     }
 
     const options = {
-      amount: amount * 100, // Razorpay expects amount in paise
+      amount: Math.round(amount), // amount in paise
       currency,
-      receipt,
+      receipt: `order_${Date.now()}`,
+      payment_capture: 1
     };
 
+    console.log('Creating order with options:', { ...options, amount: options.amount / 100 });
+
     const order = await razorpay.orders.create(options);
-    res.json({
-      success: true,
-      order,
+    console.log('Order created:', order);
+
+    res.status(200).json({ 
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency
     });
   } catch (error) {
     console.error('Error creating order:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create order',
+    res.status(500).json({ 
+      message: 'Error creating order',
+      error: error.message
     });
   }
 });
 
-// Verify payment endpoint
-app.post('/api/verify-payment', async (req, res) => {
+app.post('/api/razorpay/verify-payment', (req, res) => {
   try {
     const {
       razorpay_order_id,
@@ -63,46 +63,43 @@ app.post('/api/verify-payment', async (req, res) => {
     } = req.body;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required payment verification parameters'
-      });
+      return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    // Verify the payment signature
+    const text = `${razorpay_order_id}|${razorpay_payment_id}`;
     const generated_signature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(razorpay_order_id + '|' + razorpay_payment_id)
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'Z0GdpsZJIu2kRgp2cboJiBjM')
+      .update(text)
       .digest('hex');
 
     if (generated_signature === razorpay_signature) {
-      res.json({
-        success: true,
-        message: 'Payment verified successfully',
+      res.json({ 
+        verified: true,
+        payment_id: razorpay_payment_id,
+        order_id: razorpay_order_id
       });
     } else {
-      res.status(400).json({
-        success: false,
-        error: 'Payment verification failed',
+      res.status(400).json({ 
+        verified: false,
+        message: 'Invalid payment signature'
       });
     }
   } catch (error) {
     console.error('Error verifying payment:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to verify payment',
+    res.status(500).json({ 
+      verified: false,
+      message: 'Payment verification failed',
+      error: error.message
     });
   }
 });
 
-// Get key endpoint
-app.get('/api/get-razorpay-key', (req, res) => {
-  res.json({
-    key: process.env.RAZORPAY_KEY_ID,
-  });
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });

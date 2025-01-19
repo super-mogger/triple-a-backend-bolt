@@ -1,5 +1,5 @@
 {
-  "name": "razorpay-backend",
+  "name": "triple-a-backend-bolt",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,6 +13,20 @@
     "razorpay": "^2.9.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
-  }
+    "nodemon": "^3.1.9"
+  },
+  "version": "1.0.0",
+  "description": "Backend for Triple A Fitness with Razorpay integration",
+  "main": "server.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/super-mogger/triple-a-backend-bolt.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/super-mogger/triple-a-backend-bolt/issues"
+  },
+  "homepage": "https://github.com/super-mogger/triple-a-backend-bolt#readme"
 }
